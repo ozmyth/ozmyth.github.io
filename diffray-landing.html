@@ -564,6 +564,18 @@ go build -o bin/diffray ./cmd/
 <span class="tok-c"># 跑测试</span>
 go test ./... -v -count=1</code></pre>
     <p class="sec-desc" style="margin-top:16px">仓库内置 <code>web/index.html</code> 作为浏览器版 diff 测试器：左右贴 JSON、写配置、看判定，本地调试零成本。</p>
+
+    <figure style="margin-top:24px;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.08);background:#0b0f17;box-shadow:0 18px 48px rgba(0,0,0,.45);">
+      <img
+        src="./diffray-result.png"
+        alt="DiffRay 交互式测试器 Result 视图：Real Diffs、Equivalent、Duration、Transform Trace、Transformed Old/New、Equivalences 与 WARNING 差异项"
+        style="width:100%;height:auto;display:block;"
+        loading="lazy"
+      />
+      <figcaption style="padding:10px 14px;color:#7d8699;font-size:12px;letter-spacing:.04em;border-top:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);">
+        ▸ DiffRay 交互式测试器 · Result 视图（Mismatches / Equivalents / Transform Trace / 预处理后 JSON / 等价映射）
+      </figcaption>
+    </figure>
   </div>
 </section>
 
