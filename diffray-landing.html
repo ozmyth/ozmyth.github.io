@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DiffRay · 字段感知的 JSON 差异对比引擎</title>
+<meta name="description" content="DiffRay 是基于 Go 的 JSON diff 框架：路径级比较规则、转换预处理、严重程度分类、Lua 与插件扩展。">
+<style>
+:root{
+  --bg:#070b16; --bg2:#0b1124; --panel:rgba(255,255,255,.045); --line:rgba(120,180,255,.16);
+  --txt:#e8eefc; --muted:#8a9bc0; --cyan:#38d6f5; --indigo:#5b8cff; --green:#3ddc97; --orange:#ffb454; --red:#ff6b81;
+  --max:1120px; --radius:16px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  background:var(--bg); color:var(--txt); line-height:1.7; -webkit-font-smoothing:antialiased;
+  background-image:radial-gradient(900px 500px at 78% -8%,rgba(56,214,245,.13),transparent 60%),radial-gradient(800px 420px at 8% 12%,rgba(91,140,255,.12),transparent 62%);
+  background-attachment:fixed;
+}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 22px}
+.btn{cursor:pointer;border:none;font:inherit;display:inline-flex;align-items:center;gap:8px;padding:12px 22px;border-radius:10px;font-weight:600;transition:.2s}
+.btn-primary{background:linear-gradient(100deg,var(--cyan),var(--indigo));color:#05101f;box-shadow:0 8px 26px rgba(56,214,245,.28)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(56,214,245,.38)}
+.btn-ghost{background:var(--panel);border:1px solid var(--line);color:var(--txt)}
+.btn-ghost:hover{border-color:var(--cyan);color:#fff}
+
+/* nav */
+nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);background:rgba(7,11,22,.72);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:62px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.5px}
+.logo .mark{width:30px;height:30px;border-radius:8px;background:conic-gradient(from 200deg,var(--cyan),var(--indigo),var(--cyan));display:grid;place-items:center;font-size:15px;color:#05101f}
+.links{display:flex;gap:26px;font-size:14px;color:var(--muted)}
+.links a:hover{color:var(--cyan)}
+.links .gh{padding:6px 14px;border:1px solid var(--line);border-radius:999px}
+@media(max-width:700px){.links{display:none}}
+
+/* hero */
+.hero{padding:78px 0 60px;position:relative;overflow:hidden}
+.hero .wrap{display:grid;grid-template-columns:1.05fr .95fr;gap:46px;align-items:center}
+.badge{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border:1px solid var(--line);border-radius:999px;font-size:13px;color:var(--cyan);background:rgba(56,214,245,.07);margin-bottom:22px}
+.badge i{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
+h1{font-size:clamp(34px,5vw,58px);line-height:1.12;font-weight:800;letter-spacing:-.5px}
+h1 em{font-style:normal;background:linear-gradient(100deg,var(--cyan),var(--indigo));-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{color:var(--muted);font-size:17px;margin:22px 0 30px;max-width:520px}
+.cta{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.hero-meta{margin-top:34px;display:flex;gap:30px;flex-wrap:wrap;color:var(--muted);font-size:13px}
+.hero-meta b{display:block;color:var(--txt);font-size:19px;font-weight:700}
+.hero-img{position:relative;border-radius:20px;border:1px solid var(--line);overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5);background:var(--panel);display:grid;place-items:center;min-height:280px}
+.hero-img svg{width:80%;max-width:360px;height:auto}
+.hero-img::after{content:"";position:absolute;inset:0;box-shadow:inset 0 0 80px rgba(7,11,22,.6);pointer-events:none}
+@media(max-width:820px){.hero .wrap{grid-template-columns:1fr}.hero{padding:50px 0 40px}}
+
+/* sections */
+section{padding:74px 0}
+.eyebrow{color:var(--cyan);font-size:13px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase}
+h2{font-size:clamp(26px,3.4vw,38px);font-weight:800;margin:8px 0 14px;letter-spacing:-.3px}
+.sec-desc{color:var(--muted);max-width:640px;font-size:15.5px}
+.sec-head{margin-bottom:46px}
+
+/* problem */
+.prob-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:26px;transition:.25s}
+.card:hover{border-color:rgba(56,214,245,.5);transform:translateY(-4px);background:rgba(255,255,255,.065)}
+.card .ico{font-size:24px;margin-bottom:14px}
+.card h3{font-size:17px;margin-bottom:8px}
+.card p{color:var(--muted);font-size:14.5px}
+@media(max-width:820px){.prob-grid{grid-template-columns:1fr}}
+
+/* feature grid */
+.feat-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.feat{display:flex;gap:16px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:24px}
+.feat .dot{flex:none;width:42px;height:42px;border-radius:11px;background:linear-gradient(140deg,rgba(56,214,245,.18),rgba(91,140,255,.14));border:1px solid var(--line);display:grid;place-items:center;font-weight:800;color:var(--cyan);font-size:15px}
+.feat h3{font-size:16.5px;margin-bottom:6px}
+.feat p{color:var(--muted);font-size:14px}
+@media(max-width:820px){.feat-grid{grid-template-columns:1fr}}
+
+/* arch */
+.arch-img{border-radius:var(--radius);border:1px solid var(--line);overflow:hidden;margin-bottom:34px;background:var(--panel);display:grid;place-items:center;min-height:220px}
+.arch-img svg{width:90%;max-width:700px;height:auto}
+.arch-flow{display:grid;grid-template-columns:repeat(5,1fr);gap:0;align-items:stretch}
+.flow{border:1px solid var(--line);padding:22px 18px;background:var(--panel);position:relative}
+.flow:first-child{border-radius:var(--radius) 0 0 var(--radius)}
+.flow:last-child{border-radius:0 var(--radius) var(--radius) 0}
+.flow h4{font-size:15px;margin-bottom:6px;color:var(--cyan)}
+.flow p{font-size:13px;color:var(--muted)}
+.flow .path{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--indigo);margin-top:10px;word-break:break-all}
+@media(max-width:820px){.arch-flow{grid-template-columns:1fr}}
+@media(max-width:560px){.flow:first-child,.flow:last-child{border-radius:0}}
+
+/* code */
+.code-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.code-tabs button{background:var(--panel);border:1px solid var(--line);color:var(--muted);padding:7px 15px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit}
+.code-tabs button.on{color:#05101f;background:linear-gradient(100deg,var(--cyan),var(--indigo));border-color:transparent;font-weight:600}
+pre{background:#050912;border:1px solid var(--line);border-radius:var(--radius);padding:22px;overflow:auto;font-size:13.5px;line-height:1.75;color:#cfe3ff}
+pre code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.tok-k{color:#7fa9ff}.tok-s{color:#7ee2b8}.tok-c{color:#5f7199;font-style:italic}.tok-n{color:#ffb454}.tok-p{color:#38d6f5}
+pre[hidden]{display:none}
+@media(max-width:560px){pre{font-size:12px;padding:16px}}
+
+/* lua & plugin cards */
+.lua-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.lua-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:0;overflow:hidden}
+.lua-card .thumb{height:150px;overflow:hidden;border-bottom:1px solid var(--line);background:var(--panel);display:grid;place-items:center}
+.lua-card .thumb svg{width:60%;max-width:200px;height:auto}
+.lua-card .body{padding:24px}
+.lua-card h3{font-size:17px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.lua-card .tag{font-size:11.5px;padding:3px 9px;border-radius:999px;background:rgba(56,214,245,.12);color:var(--cyan);font-weight:600}
+.lua-card p{color:var(--muted);font-size:14px;margin-bottom:14px}
+.lua-card ol{margin:0 0 14px 18px;color:var(--muted);font-size:13.5px}
+.lua-card ol li{margin-bottom:4px}
+@media(max-width:820px){.lua-grid{grid-template-columns:1fr}}
+
+/* workflow */
+.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;counter-reset:s}
+.step{counter-increment:s;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px;position:relative}
+.step::before{content:counter(s);position:absolute;top:-14px;left:20px;width:28px;height:28px;border-radius:8px;background:linear-gradient(140deg,var(--cyan),var(--indigo));color:#05101f;font-weight:800;display:grid;place-items:center;font-size:14px}
+.step h4{font-size:15px;margin:6px 0 6px}
+.step p{font-size:13px;color:var(--muted)}
+@media(max-width:820px){.steps{grid-template-columns:1fr 1fr}}
+
+/* cta band */
+.band{margin:30px 0 80px;border:1px solid var(--line);border-radius:24px;padding:56px 40px;text-align:center;background:radial-gradient(700px 300px at 50% 0%,rgba(56,214,245,.14),transparent 70%),var(--panel);position:relative;overflow:hidden}
+.band h2{font-size:clamp(24px,3vw,34px)}
+.band p{color:var(--muted);margin:12px auto 26px;max-width:520px}
+
+/* footer */
+footer{border-top:1px solid var(--line);padding:36px 0;color:var(--muted);font-size:13.5px}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px}
+
+::selection{background:rgba(56,214,245,.3)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <div class="logo"><span class="mark">{ }</span> DiffRay</div>
+    <div class="links">
+      <a href="#why">为什么</a>
+      <a href="#features">特性</a>
+      <a href="#lua">Lua & Plugin</a>
+      <a href="#start">快速开始</a>
+      <a href="#api">API</a>
+      <a href="#" class="gh">GitHub ↗</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <span class="badge"><i></i> v0.x · 实验性 · Go 原生</span>
+      <h1>字段感知的<br><em>JSON 差异对比引擎</em></h1>
+      <p class="lead">DiffRay 不是逐行比文本的工具。它用路径级规则理解你的 JSON，在比较前清洗噪音、转换结构，把差异分成"真的不同"和"等价但写法不同"，并为每个字段打上严重程度。</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="#start">⚡ 5 分钟跑起来</a>
+        <a class="btn btn-ghost" href="#lua">探索 Lua & Plugin →</a>
+      </div>
+      <div class="hero-meta">
+        <div><b>7+</b>内置比较器</div>
+        <div><b>10</b>内置处理器</div>
+        <div><b>100%</b>Go 实现</div>
+      </div>
+    </div>
+    <div class="hero-img">
+      <!-- 内联 SVG 替换 imgs/hero.png -->
+      <svg viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="300" rx="16" fill="#050912"/>
+        <rect x="30" y="30" width="160" height="240" rx="8" fill="rgba(56,214,245,.06)" stroke="rgba(56,214,245,.25)" stroke-width="1.5"/>
+        <rect x="210" y="30" width="160" height="240" rx="8" fill="rgba(91,140,255,.06)" stroke="rgba(91,140,255,.25)" stroke-width="1.5"/>
+        <line x1="190" y1="80" x2="210" y2="80" stroke="var(--cyan)" stroke-width="2" marker-end="url(#arrow)"/>
+        <line x1="190" y1="120" x2="210" y2="120" stroke="var(--cyan)" stroke-width="2"/>
+        <line x1="190" y1="160" x2="210" y2="160" stroke="var(--cyan)" stroke-width="2"/>
+        <circle cx="200" cy="200" r="20" fill="rgba(56,214,245,.15)" stroke="var(--cyan)" stroke-width="1.5"/>
+        <text x="200" y="205" text-anchor="middle" fill="var(--cyan)" font-size="12" font-weight="700">DIFF</text>
+        <text x="110" y="55" text-anchor="middle" fill="var(--muted)" font-size="11" font-family="monospace">old.json</text>
+        <text x="290" y="55" text-anchor="middle" fill="var(--muted)" font-size="11" font-family="monospace">new.json</text>
+        <rect x="50" y="70" width="120" height="8" rx="4" fill="rgba(56,214,245,.2)"/>
+        <rect x="50" y="90" width="100" height="8" rx="4" fill="rgba(56,214,245,.15)"/>
+        <rect x="50" y="110" width="130" height="8" rx="4" fill="rgba(56,214,245,.2)"/>
+        <rect x="50" y="130" width="80" height="8" rx="4" fill="rgba(56,214,245,.1)"/>
+        <rect x="230" y="70" width="120" height="8" rx="4" fill="rgba(91,140,255,.2)"/>
+        <rect x="230" y="90" width="100" height="8" rx="4" fill="rgba(91,140,255,.15)"/>
+        <rect x="230" y="110" width="130" height="8" rx="4" fill="rgba(91,140,255,.2)"/>
+        <rect x="230" y="130" width="80" height="8" rx="4" fill="rgba(91,140,255,.1)"/>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="var(--cyan)"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+  </div>
+</header>
+
+<section id="why">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Why DiffRay</div>
+      <h2>文本 diff 的噪音，不该是你的负担</h2>
+      <p class="sec-desc">典型的 diff 工具把 JSON 当字符串逐行对比，时间戳、ID、字段顺序的微小变动都会刷屏。DiffRay 引入结构化模型，只关心"语义上到底变没变"。</p>
+    </div>
+    <div class="prob-grid">
+      <div class="card">
+        <div class="ico">🔕</div>
+        <h3>忽略噪音字段</h3>
+        <p>生成的时间戳、调试字段、请求 ID，比较前直接排除，结果只剩真正重要的变化。</p>
+      </div>
+      <div class="card">
+        <div class="ico">🧠</div>
+        <h3>字段级比较规则</h3>
+        <p>同一个 payload 里，年龄走范围校验、邮箱走正则、姓名走大小写不敏感，各走各的。</p>
+      </div>
+      <div class="card">
+        <div class="ico">🏷️</div>
+        <h3>严重程度分级</h3>
+        <p>每个路径绑定 Critical / Warning 等级，一眼区分致命差异和可接受的等价写法。</p>
+      </div>
+      <div class="card">
+        <div class="ico">🧰</div>
+        <h3>预处理转换</h3>
+        <p>字符串里嵌套的 JSON、需要排序的数组、要统一的大小写——比之前先规范化。</p>
+      </div>
+      <div class="card">
+        <div class="ico">🔌</div>
+        <h3>插件与 Lua 扩展</h3>
+        <p>没有覆盖到的规则？写几行 Lua 或挂一个 .so 插件，不用改引擎代码。</p>
+      </div>
+      <div class="card">
+        <div class="ico">🧪</div>
+        <h3>浏览器试玩</h3>
+        <p>仓库自带 Web UI，左右贴 JSON、配规则、看判定，不用先写一行 Go。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Core Features</div>
+      <h2>六个关键词，说清它能干什么</h2>
+    </div>
+    <div class="feat-grid">
+      <div class="feat"><div class="dot">01</div><div><h3>路径级比较</h3><p>JSONPath 精确绑定规则，支持 <code>$.tags[*]</code>、<code>$..age</code> 这类通配与递归路径。</p></div></div>
+      <div class="feat"><div class="dot">02</div><div><h3>内置比较器</h3><p>default / contains / regex / prefix / suffix / range / lua，覆盖常见判定场景。</p></div></div>
+      <div class="feat"><div class="dot">03</div><div><h3>转换预处理</h3><p>uppercase、lowercase、trim、exclude、sort、parseJsonString、pipeline 等处理器。</p></div></div>
+      <div class="feat"><div class="dot">04</div><div><h3>严重程度</h3><p>按路径设定 Critical / Warning，差异结果自带分类，便于准入判定。</p></div></div>
+      <div class="feat"><div class="dot">05</div><div><h3>Lua 定制</h3><p>比较与转换都可用 Lua 脚本表达，沙箱执行，无需重新编译主程序。</p></div></div>
+      <div class="feat"><div class="dot">06</div><div><h3>插件宿主</h3><p>PluginHost 可注册自定义比较器、处理器、导出器，支持 .so 与内置注册。</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="arch" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Architecture</div>
+      <h2>一条清晰的流水线</h2>
+      <p class="sec-desc">从入口到结果，每一层职责单一，规则与引擎解耦。</p>
+    </div>
+    <div class="arch-img">
+      <!-- 内联 SVG 替换 imgs/arch.png -->
+      <svg viewBox="0 0 700 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="700" height="200" rx="12" fill="#050912"/>
+        <!-- 5 nodes -->
+        <rect x="20" y="60" width="110" height="80" rx="10" fill="rgba(56,214,245,.1)" stroke="var(--cyan)" stroke-width="1.5"/>
+        <text x="75" y="90" text-anchor="middle" fill="var(--cyan)" font-size="13" font-weight="700">入口</text>
+        <text x="75" y="110" text-anchor="middle" fill="var(--muted)" font-size="10">HTTP / API</text>
+        <text x="75" y="126" text-anchor="middle" fill="var(--indigo)" font-size="9" font-family="monospace">cmd/server</text>
+        <path d="M130 100 L160 100" stroke="var(--cyan)" stroke-width="1.5" marker-end="url(#a2)"/>
+        <rect x="160" y="60" width="110" height="80" rx="10" fill="rgba(91,140,255,.1)" stroke="var(--indigo)" stroke-width="1.5"/>
+        <text x="215" y="90" text-anchor="middle" fill="var(--indigo)" font-size="13" font-weight="700">预处理</text>
+        <text x="215" y="110" text-anchor="middle" fill="var(--muted)" font-size="10">转换管道</text>
+        <text x="215" y="126" text-anchor="middle" fill="var(--indigo)" font-size="9" font-family="monospace">pkg/transform</text>
+        <path d="M270 100 L300 100" stroke="var(--cyan)" stroke-width="1.5" marker-end="url(#a2)"/>
+        <rect x="300" y="60" width="110" height="80" rx="10" fill="rgba(56,214,245,.1)" stroke="var(--cyan)" stroke-width="1.5"/>
+        <text x="355" y="90" text-anchor="middle" fill="var(--cyan)" font-size="13" font-weight="700">规则绑定</text>
+        <text x="355" y="110" text-anchor="middle" fill="var(--muted)" font-size="10">路径快照</text>
+        <text x="355" y="126" text-anchor="middle" fill="var(--indigo)" font-size="9" font-family="monospace">pkg/compare</text>
+        <path d="M410 100 L440 100" stroke="var(--cyan)" stroke-width="1.5" marker-end="url(#a2)"/>
+        <rect x="440" y="60" width="110" height="80" rx="10" fill="rgba(91,140,255,.1)" stroke="var(--indigo)" stroke-width="1.5"/>
+        <text x="495" y="90" text-anchor="middle" fill="var(--indigo)" font-size="13" font-weight="700">遍历判定</text>
+        <text x="495" y="110" text-anchor="middle" fill="var(--muted)" font-size="10">递归树</text>
+        <text x="495" y="126" text-anchor="middle" fill="var(--indigo)" font-size="9" font-family="monospace">pkg/core</text>
+        <path d="M550 100 L580 100" stroke="var(--cyan)" stroke-width="1.5" marker-end="url(#a2)"/>
+        <rect x="580" y="60" width="100" height="80" rx="10" fill="rgba(56,214,245,.1)" stroke="var(--cyan)" stroke-width="1.5"/>
+        <text x="630" y="90" text-anchor="middle" fill="var(--cyan)" font-size="13" font-weight="700">输出</text>
+        <text x="630" y="110" text-anchor="middle" fill="var(--muted)" font-size="10">差异报告</text>
+        <text x="630" y="126" text-anchor="middle" fill="var(--indigo)" font-size="9" font-family="monospace">pkg/exporter</text>
+        <defs>
+          <marker id="a2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="var(--cyan)"/></marker>
+        </defs>
+      </svg>
+    </div>
+    <div class="arch-flow">
+      <div class="flow"><h4>入口</h4><p>HTTP / API 服务</p><div class="path">cmd/server</div></div>
+      <div class="flow"><h4>预处理</h4><p>转换管道规范化文档</p><div class="path">pkg/transform</div></div>
+      <div class="flow"><h4>规则绑定</h4><p>路径快照加载比较器</p><div class="path">pkg/compare</div></div>
+      <div class="flow"><h4>遍历判定</h4><p>递归树并记录差异项</p><div class="path">pkg/core</div></div>
+      <div class="flow"><h4>输出</h4><p>差异、等价、忽略、摘要</p><div class="path">pkg/exporter</div></div>
+    </div>
+  </div>
+</section>
+
+<section id="code" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Configuration</div>
+      <h2>一份配置，定义全部规则</h2>
+      <p class="sec-desc">比较器与转换规则写在同一个 FullConfig 里，JSON / YAML 均可。</p>
+    </div>
+    <div class="code-tabs">
+      <button class="on" data-t="yaml">YAML</button>
+      <button data-t="json">JSON</button>
+    </div>
+    <pre id="yaml"><code><span class="tok-c"># 字段级比较规则</span>
+<span class="tok-k">comparators</span>:
+  - <span class="tok-k">path</span>: <span class="tok-s">$.user.name</span>
+    <span class="tok-k">type</span>: <span class="tok-s">lua</span>
+    <span class="tok-k">config</span>:
+      <span class="tok-k">script</span>: <span class="tok-p">|</span>
+        function compare(old, new, ctx)
+          return {
+            matched = string.lower(old) == string.lower(new),
+            reason   = "case-insensitive comparison"
+          }
+        end
+  - <span class="tok-k">path</span>: <span class="tok-s">$.user.age</span>
+    <span class="tok-k">type</span>: <span class="tok-s">range</span>
+    <span class="tok-k">config</span>: { <span class="tok-k">min</span>: <span class="tok-n">18</span>, <span class="tok-k">max</span>: <span class="tok-n">120</span> }
+
+<span class="tok-c"># 比较前预处理</span>
+<span class="tok-k">transform</span>:
+  <span class="tok-k">rules</span>:
+    - <span class="tok-k">type</span>: <span class="tok-s">exclude</span>
+      <span class="tok-k">config</span>:
+        <span class="tok-k">path</span>: [<span class="tok-s">$.metadata.created</span>, <span class="tok-s">$.debug</span>]
+    - <span class="tok-k">type</span>: <span class="tok-s">parseJsonString</span>
+      <span class="tok-k">config</span>: { <span class="tok-k">path</span>: <span class="tok-s">$.response.body</span> }</code></pre>
+    <pre id="json" hidden><code>{
+  <span class="tok-s">"comparators"</span>: [
+    {
+      <span class="tok-s">"path"</span>: <span class="tok-s">"$.user.name"</span>,
+      <span class="tok-s">"type"</span>: <span class="tok-s">"lua"</span>,
+      <span class="tok-s">"config"</span>: {
+        <span class="tok-s">"script"</span>: <span class="tok-s">"function compare(old, new, ctx) return { matched = string.lower(old) == string.lower(new) } end"</span>
+      }
+    },
+    {
+      <span class="tok-s">"path"</span>: <span class="tok-s">"$.user.age"</span>,
+      <span class="tok-s">"type"</span>: <span class="tok-s">"range"</span>,
+      <span class="tok-s">"config"</span>: { <span class="tok-s">"min"</span>: <span class="tok-n">18</span>, <span class="tok-s">"max"</span>: <span class="tok-n">120</span> }
+    }
+  ],
+  <span class="tok-s">"transform"</span>: {
+    <span class="tok-s">"rules"</span>: [
+      { <span class="tok-s">"type"</span>: <span class="tok-s">"exclude"</span>, <span class="tok-s">"config"</span>: { <span class="tok-s">"path"</span>: [<span class="tok-s">"$.metadata.created"</span>, <span class="tok-s">"$.debug"</span>] } },
+      { <span class="tok-s">"type"</span>: <span class="tok-s">"parseJsonString"</span>, <span class="tok-s">"config"</span>: { <span class="tok-s">"path"</span>: <span class="tok-s">"$.response.body"</span> } }
+    ]
+  }
+}</code></pre>
+  </div>
+</section>
+
+<section id="lua" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Lua & Plugin Extension</div>
+      <h2>比较与转换，都能用 Lua 和插件写出来</h2>
+      <p class="sec-desc">Lua 是 DiffRay 的一等公民。同时，插件系统让你用 Go 编写原生扩展，两者互为补充。</p>
+    </div>
+    <div class="lua-grid">
+      <!-- Lua Comparator Card -->
+      <div class="lua-card">
+        <div class="thumb">
+          <!-- 内联 SVG 替换 imgs/diff.png -->
+          <svg viewBox="0 0 300 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="300" height="150" fill="rgba(56,214,245,.04)"/>
+            <rect x="20" y="20" width="260" height="110" rx="8" fill="#050912" stroke="rgba(56,214,245,.3)" stroke-width="1"/>
+            <text x="30" y="45" fill="var(--cyan)" font-size="12" font-weight="700" font-family="monospace">Lua Comparator</text>
+            <rect x="30" y="55" width="240" height="2" fill="rgba(56,214,245,.15)"/>
+            <text x="30" y="75" fill="var(--muted)" font-size="10" font-family="monospace">function compare(old, new, ctx)</text>
+            <text x="30" y="92" fill="var(--muted)" font-size="10" font-family="monospace">  return {</text>
+            <text x="44" y="106" fill="var(--green)" font-size="10" font-family="monospace">matched = string.lower(old)</text>
+            <text x="44" y="120" fill="var(--green)" font-size="10" font-family="monospace">       == string.lower(new)</text>
+            <text x="30" y="134" fill="var(--muted)" font-size="10" font-family="monospace">  }</text>
+          </svg>
+        </div>
+        <div class="body">
+          <h3><span class="tag">comparator</span> Lua Comparator</h3>
+          <p>在指定 JSONPath 上执行脚本，判定两个值是否等价。</p>
+          <ol>
+            <li>注入全局变量：old / new / ctx / config / path</li>
+            <li>沙箱中执行脚本</li>
+            <li>返回 bool 或 {matched, reason} 表</li>
+            <li>类型不符 → 报错并标记不匹配</li>
+          </ol>
+          <div class="code-tabs" style="margin-bottom:10px"><button class="on">脚本</button></div>
+          <pre><code><span class="tok-k">function</span> compare(old, new, ctx)
+  <span class="tok-k">return</span> {
+    matched = string.lower(old) == string.lower(new),
+    reason  = <span class="tok-s">"case-insensitive comparison"</span>
+  }
+<span class="tok-k">end</span></code></pre>
+        </div>
+      </div>
+
+      <!-- Lua Processor Card -->
+      <div class="lua-card">
+        <div class="thumb">
+          <!-- 内联 SVG 替换 imgs/plugin.png -->
+          <svg viewBox="0 0 300 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="300" height="150" fill="rgba(91,140,255,.04)"/>
+            <rect x="20" y="20" width="260" height="110" rx="8" fill="#050912" stroke="rgba(91,140,255,.3)" stroke-width="1"/>
+            <text x="30" y="45" fill="var(--indigo)" font-size="12" font-weight="700" font-family="monospace">Lua Processor</text>
+            <rect x="30" y="55" width="240" height="2" fill="rgba(91,140,255,.15)"/>
+            <text x="30" y="75" fill="var(--muted)" font-size="10" font-family="monospace">-- doc = 当前节点值</text>
+            <text x="30" y="92" fill="var(--muted)" font-size="10" font-family="monospace">if doc &lt; 0 then return nil end</text>
+            <text x="30" y="109" fill="var(--muted)" font-size="10" font-family="monospace">return doc + 1</text>
+            <circle cx="260" cy="125" r="14" fill="rgba(91,140,255,.15)" stroke="var(--indigo)" stroke-width="1"/>
+            <text x="260" y="129" text-anchor="middle" fill="var(--indigo)" font-size="9" font-weight="700">.so</text>
+          </svg>
+        </div>
+        <div class="body">
+          <h3><span class="tag">processor</span> Lua Processor</h3>
+          <p>对路径匹配到的每个节点执行脚本，返回值写回原路径。</p>
+          <ol>
+            <li>按路径匹配所有节点（支持通配）</li>
+            <li>逐节点注入 doc 与 path</li>
+            <li>return 有效值写回；return nil 跳过</li>
+            <li>包裹在作用域内执行，便于追踪</li>
+          </ol>
+          <div class="code-tabs" style="margin-bottom:10px"><button class="on">脚本</button></div>
+          <pre><code><span class="tok-c">-- doc 为当前节点值，path 为节点路径</span>
+<span class="tok-k">if</span> doc < <span class="tok-n">0</span> <span class="tok-k">then</span> <span class="tok-k">return</span> <span class="tok-k">nil</span> <span class="tok-k">end</span>  <span class="tok-c">-- 跳过负值</span>
+<span class="tok-k">return</span> doc + <span class="tok-n">1</span></code></pre>
+        </div>
+      </div>
+
+      <!-- Plugin System Card (NEW) -->
+      <div class="lua-card">
+        <div class="thumb">
+          <svg viewBox="0 0 300 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="300" height="150" fill="rgba(61,220,151,.04)"/>
+            <rect x="20" y="20" width="260" height="110" rx="8" fill="#050912" stroke="rgba(61,220,151,.3)" stroke-width="1"/>
+            <text x="30" y="45" fill="var(--green)" font-size="12" font-weight="700" font-family="monospace">Plugin System</text>
+            <rect x="30" y="55" width="240" height="2" fill="rgba(61,220,151,.15)"/>
+            <text x="30" y="75" fill="var(--muted)" font-size="10" font-family="monospace">type PluginHost struct {</text>
+            <text x="44" y="90" fill="var(--green)" font-size="10" font-family="monospace">RegisterComparator</text>
+            <text x="56" y="104" fill="var(--muted)" font-size="10" font-family="monospace">RegisterProcessor</text>
+            <text x="56" y="118" fill="var(--muted)" font-size="10" font-family="monospace">RegisterExporter</text>
+            <text x="30" y="132" fill="var(--muted)" font-size="10" font-family="monospace">}</text>
+          </svg>
+        </div>
+        <div class="body">
+          <h3><span class="tag" style="background:rgba(61,220,151,.12);color:var(--green)">plugin</span> Plugin 系统</h3>
+          <p>用 Go 编写原生扩展，编译为 .so 或通过 built-in 注册，获得完整类型安全与性能。</p>
+          <ol>
+            <li>实现 <code>PluginEntry()</code> 函数，返回元数据与 Onload 钩子</li>
+            <li>在 Onload 中通过 <code>PluginHost</code> 注册比较器、处理器、导出器</li>
+            <li>支持 .so 动态加载（Linux/macOS）或进程内 built-in 注册</li>
+            <li>插件与 Lua 脚本可混用，互为补充</li>
+          </ol>
+          <div class="code-tabs" style="margin-bottom:10px"><button class="on">Go 示例</button></div>
+          <pre><code><span class="tok-k">func</span> PluginEntry() *plugin.PluginEntry {
+  <span class="tok-k">return</span> &plugin.PluginEntry{
+    Meta: plugin.PluginMeta{
+      Name:    <span class="tok-s">"uuid_comparator"</span>,
+      Version: <span class="tok-s">"1.0.0"</span>,
+    },
+    Onload: <span class="tok-k">func</span>(host *plugin.PluginHost) <span class="tok-k">error</span> {
+      host.RegisterComparator(&UUIDComparator{})
+      <span class="tok-k">return</span> <span class="tok-k">nil</span>
+    },
+  }
+}</code></pre>
+        </div>
+      </div>
+
+      <!-- Plugin Manager Card (NEW) -->
+      <div class="lua-card">
+        <div class="thumb">
+          <svg viewBox="0 0 300 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="300" height="150" fill="rgba(255,180,84,.04)"/>
+            <rect x="20" y="20" width="260" height="110" rx="8" fill="#050912" stroke="rgba(255,180,84,.3)" stroke-width="1"/>
+            <text x="30" y="45" fill="var(--orange)" font-size="12" font-weight="700" font-family="monospace">Plugin Manager</text>
+            <rect x="30" y="55" width="240" height="2" fill="rgba(255,180,84,.15)"/>
+            <text x="30" y="78" fill="var(--muted)" font-size="10" font-family="monospace">manager.Load("uuid.so")</text>
+            <text x="30" y="95" fill="var(--muted)" font-size="10" font-family="monospace">manager.Unload("uuid.so")</text>
+            <text x="30" y="112" fill="var(--muted)" font-size="10" font-family="monospace">manager.RegisterBuiltin(...)</text>
+            <rect x="200" y="60" width="70" height="70" rx="35" fill="rgba(255,180,84,.1)" stroke="var(--orange)" stroke-width="1"/>
+            <text x="235" y="98" text-anchor="middle" fill="var(--orange)" font-size="20">🔌</text>
+          </svg>
+        </div>
+        <div class="body">
+          <h3><span class="tag" style="background:rgba(255,180,84,.12);color:var(--orange)">manager</span> Plugin Manager</h3>
+          <p>PluginManager 负责插件的生命周期管理，支持动态加载、卸载和热重载。</p>
+          <ol>
+            <li><code>Load(soPath)</code> 从 .so 文件加载并初始化插件</li>
+            <li><code>Unload(soPath)</code> 卸载指定插件</li>
+            <li><code>RegisterBuiltin(entry)</code> 注册进程内 built-in 插件</li>
+            <li>插件 API 定义在 <code>pkg/plugin/api.go</code></li>
+          </ol>
+          <div class="code-tabs" style="margin-bottom:10px"><button class="on">Go 示例</button></div>
+          <pre><code>pm := plugin.NewPluginManager()
+err := pm.Load(<span class="tok-s">"./plugins/uuid.so"</span>)
+<span class="tok-k">if</span> err != <span class="tok-k">nil</span> {
+  log.Fatal(err)
+}
+<span class="tok-c">// 注册 built-in 插件</span>
+pm.RegisterBuiltin(myPluginEntry)</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="flow" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Workflow</div>
+      <h2>典型使用五步走</h2>
+    </div>
+    <div class="steps">
+      <div class="step"><h4>准备输入</h4><p>准备 old / new 两份 JSON 负载。</p></div>
+      <div class="step"><h4>排除噪音</h4><p>用 exclude 等规则丢掉无关字段。</p></div>
+      <div class="step"><h4>绑定规则</h4><p>为关键路径挂比较器。</p></div>
+      <div class="step"><h4>运行 diff</h4><p>执行并拿到结构化结果。</p></div>
+      <div class="step"><h4>审视结果</h4><p>区分真实差异与等价匹配。</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="api" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">HTTP API</div>
+      <h2>三个接口，接入任何系统</h2>
+    </div>
+    <div class="prob-grid">
+      <div class="card"><h3>POST /api/diff</h3><p>提交 old、new 与可选 config，返回差异、等价项、忽略项与严重程度摘要。</p></div>
+      <div class="card"><h3>POST /api/validate</h3><p>校验配置结构合法性，规则写错之前先拦下来。</p></div>
+      <div class="card"><h3>GET /health</h3><p>健康检查端点，配合网关与编排系统使用。</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="start" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Quick Start</div>
+      <h2>跑起来只要三行</h2>
+    </div>
+    <pre><code><span class="tok-c"># 启动服务（默认 :8080，附带浏览器试玩 UI）</span>
+go run cmd/server/main.go
+
+<span class="tok-c"># 编译</span>
+go build -o bin/diffray ./cmd/
+
+<span class="tok-c"># 跑测试</span>
+go test ./... -v -count=1</code></pre>
+    <p class="sec-desc" style="margin-top:16px">仓库内置 <code>web/index.html</code> 作为浏览器版 diff 测试器：左右贴 JSON、写配置、看判定，本地调试零成本。</p>
+  </div>
+</section>
+
+<div class="wrap">
+  <div class="band">
+    <h2>如果你的对比逻辑不该挤在一个大比较器里</h2>
+    <p>DiffRay 给你一条干净的扩展路径：路径级规则、无状态比较器、可组合的转换步骤，加上插件与 Lua 的弹性。</p>
+    <div class="cta" style="justify-content:center">
+      <a class="btn btn-primary" href="#">📦 获取源码</a>
+      <a class="btn btn-ghost" href="#">📖 阅读文档</a>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>© DiffRay · 基于 Go 的 JSON 差异对比框架</span>
+    <span>实验性项目 · 仓库尚未声明许可证</span>
+  </div>
+</footer>
+
+<script>
+// YAML / JSON 切换
+document.querySelectorAll('.code-tabs button[data-t]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const wrap=b.closest('.wrap');
+    wrap.querySelectorAll('.code-tabs button[data-t]').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    wrap.querySelectorAll('pre[id]').forEach(p=>p.hidden=(p.id!==b.dataset.t));
+  });
+});
+// Lua 卡片 tab 占位
+document.querySelectorAll('.lua-card .code-tabs button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const card=b.closest('.lua-card');
+    card.querySelectorAll('.code-tabs button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+  });
+});
+</script>
+</body>
+</html>
