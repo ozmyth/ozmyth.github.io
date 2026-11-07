@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DiffRay v2 · 用 DRL 脚本语言重新定义 JSON 差异对比</title>
+<meta name="description" content="DiffRay v2 引入了自定义领域脚本语言 DRL（DiffRay Script Language），以声明式脚本替代 YAML/JSON 配置，配合 DiffRay IDE 浏览器内实时预览。">
+<style>
+:root{
+  --bg:#070b16; --bg2:#0b1124; --panel:rgba(255,255,255,.045); --line:rgba(120,180,255,.16);
+  --txt:#e8eefc; --muted:#8a9bc0; --cyan:#38d6f5; --indigo:#5b8cff; --green:#3ddc97; --orange:#ffb454; --red:#ff6b81;
+  --max:1120px; --radius:16px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  background:var(--bg); color:var(--txt); line-height:1.7; -webkit-font-smoothing:antialiased;
+  background-image:radial-gradient(900px 500px at 78% -8%,rgba(56,214,245,.13),transparent 60%),radial-gradient(800px 420px at 8% 12%,rgba(91,140,255,.12),transparent 62%);
+  background-attachment:fixed;
+}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 22px}
+.btn{cursor:pointer;border:none;font:inherit;display:inline-flex;align-items:center;gap:8px;padding:12px 22px;border-radius:10px;font-weight:600;transition:.2s}
+.btn-primary{background:linear-gradient(100deg,var(--cyan),var(--indigo));color:#05101f;box-shadow:0 8px 26px rgba(56,214,245,.28)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(56,214,245,.38)}
+.btn-ghost{background:var(--panel);border:1px solid var(--line);color:var(--txt)}
+.btn-ghost:hover{border-color:var(--cyan);color:#fff}
+
+/* nav */
+nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);background:rgba(7,11,22,.72);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:62px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.5px}
+.logo .mark{width:30px;height:30px;border-radius:8px;background:conic-gradient(from 200deg,var(--cyan),var(--indigo),var(--cyan));display:grid;place-items:center;font-size:15px;color:#05101f}
+.links{display:flex;gap:26px;font-size:14px;color:var(--muted)}
+.links a:hover{color:var(--cyan)}
+.links .gh{padding:6px 14px;border:1px solid var(--line);border-radius:999px}
+@media(max-width:700px){.links{display:none}}
+
+/* hero */
+.hero{padding:78px 0 60px;position:relative;overflow:hidden}
+.hero .wrap{display:grid;grid-template-columns:1.05fr .95fr;gap:46px;align-items:center}
+.badge{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border:1px solid var(--line);border-radius:999px;font-size:13px;color:var(--cyan);background:rgba(56,214,245,.07);margin-bottom:22px}
+.badge i{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
+.badge.v2{color:var(--green);border-color:rgba(61,220,151,.4);background:rgba(61,220,151,.07)}
+.badge.v2 i{background:var(--green);box-shadow:0 0 10px var(--green)}
+h1{font-size:clamp(34px,5vw,58px);line-height:1.12;font-weight:800;letter-spacing:-.5px}
+h1 em{font-style:normal;background:linear-gradient(100deg,var(--cyan),var(--indigo));-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{color:var(--muted);font-size:17px;margin:22px 0 30px;max-width:520px}
+.cta{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.hero-meta{margin-top:34px;display:flex;gap:30px;flex-wrap:wrap;color:var(--muted);font-size:13px}
+.hero-meta b{display:block;color:var(--txt);font-size:19px;font-weight:700}
+.hero-img{position:relative;border-radius:20px;border:1px solid var(--line);overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5);background:var(--panel);display:grid;place-items:center;min-height:280px}
+.hero-img pre{width:100%;height:100%;padding:24px;font-size:12.5px;line-height:1.7;color:#cfe3ff;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow:auto}
+.hero-img pre .kw{color:#7fa9ff;font-weight:600}
+.hero-img pre .fn{color:#38d6f5}
+.hero-img pre .st{color:#7ee2b8}
+.hero-img pre .cm{color:#5f7199;font-style:italic}
+.hero-img pre .pn{color:#ffb454}
+@media(max-width:820px){.hero .wrap{grid-template-columns:1fr}.hero{padding:50px 0 40px}}
+
+/* sections */
+section{padding:74px 0}
+.eyebrow{color:var(--cyan);font-size:13px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase}
+h2{font-size:clamp(26px,3.4vw,38px);font-weight:800;margin:8px 0 14px;letter-spacing:-.3px}
+.sec-desc{color:var(--muted);max-width:640px;font-size:15.5px}
+.sec-head{margin-bottom:46px}
+
+/* v1 vs v2 */
+.vs-grid{display:grid;grid-template-columns:1fr 60px 1fr;gap:0;align-items:stretch}
+.vs-col{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:28px;position:relative}
+.vs-col.old{border-radius:var(--radius) 0 0 var(--radius)}
+.vs-col.new{border-radius:0 var(--radius) var(--radius) 0;border-color:rgba(61,220,151,.35)}
+.vs-col.new::before{content:"v2";position:absolute;top:-12px;right:20px;background:var(--green);color:#05101f;font-size:11px;font-weight:800;padding:3px 12px;border-radius:999px}
+.vs-col.old::before{content:"v1";position:absolute;top:-12px;right:20px;background:var(--muted);color:#05101f;font-size:11px;font-weight:800;padding:3px 12px;border-radius:999px}
+.vs-col h3{font-size:16px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.vs-col.old h3{color:var(--muted)}
+.vs-col.new h3{color:var(--green)}
+.vs-col pre{background:#050912;border:1px solid var(--line);border-radius:10px;padding:16px;font-size:12px;line-height:1.65;color:#cfe3ff;overflow:auto;max-height:340px}
+.vs-col pre code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.vs-arrow{display:grid;place-items:center;color:var(--cyan);font-size:24px}
+.vs-list{margin-top:16px;list-style:none}
+.vs-list li{font-size:13.5px;color:var(--muted);padding:4px 0;padding-left:18px;position:relative}
+.vs-list li::before{content:"✕";position:absolute;left:0;color:var(--red);font-size:11px}
+.vs-list.good li::before{content:"✓";color:var(--green)}
+@media(max-width:820px){.vs-grid{grid-template-columns:1fr}.vs-col.old{border-radius:var(--radius) var(--radius) 0 0}.vs-col.new{border-radius:0 0 var(--radius) var(--radius)}.vs-arrow{transform:rotate(90deg);padding:10px 0}}
+
+/* DRL showcase */
+.drl-box{background:#050912;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.drl-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.03)}
+.drl-header .lang{font-size:12px;color:var(--cyan);font-weight:700;font-family:ui-monospace,Menlo,monospace}
+.drl-header .badges{display:flex;gap:8px}
+.drl-header .badges span{font-size:10.5px;padding:2px 8px;border-radius:999px;background:rgba(91,140,255,.12);color:var(--indigo);font-weight:600}
+.drl-box pre{padding:24px;font-size:13.5px;line-height:1.8;color:#cfe3ff;overflow:auto;max-height:480px}
+.drl-box pre code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.tok-kw{color:#c678dd;font-weight:600}
+.tok-fn{color:#61afef}
+.tok-st{color:#98c379}
+.tok-pn{color:#e5c07b}
+.tok-cm{color:#5c6370;font-style:italic}
+.tok-nm{color:#d19a66}
+.tok-brace{color:#56b6c2}
+
+/* feature grid */
+.feat-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.feat{display:flex;gap:16px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:24px}
+.feat .dot{flex:none;width:42px;height:42px;border-radius:11px;background:linear-gradient(140deg,rgba(56,214,245,.18),rgba(91,140,255,.14));border:1px solid var(--line);display:grid;place-items:center;font-weight:800;color:var(--cyan);font-size:15px}
+.feat h3{font-size:16.5px;margin-bottom:6px}
+.feat p{color:var(--muted);font-size:14px}
+@media(max-width:820px){.feat-grid{grid-template-columns:1fr}}
+
+/* arch */
+.arch-img{border-radius:var(--radius);border:1px solid var(--line);overflow:hidden;margin-bottom:34px;background:var(--panel);display:grid;place-items:center;min-height:220px}
+.arch-img svg{width:90%;max-width:700px;height:auto}
+.arch-flow{display:grid;grid-template-columns:repeat(5,1fr);gap:0;align-items:stretch}
+.flow{border:1px solid var(--line);padding:22px 18px;background:var(--panel);position:relative}
+.flow:first-child{border-radius:var(--radius) 0 0 var(--radius)}
+.flow:last-child{border-radius:0 var(--radius) var(--radius) 0}
+.flow h4{font-size:15px;margin-bottom:6px;color:var(--cyan)}
+.flow p{font-size:13px;color:var(--muted)}
+.flow .path{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--indigo);margin-top:10px;word-break:break-all}
+@media(max-width:820px){.arch-flow{grid-template-columns:1fr}}
+@media(max-width:560px){.flow:first-child,.flow:last-child{border-radius:0}}
+
+/* plugin */
+.plug-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.plug-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:0;overflow:hidden}
+.plug-card .thumb{height:120px;overflow:hidden;border-bottom:1px solid var(--line);background:#050912;padding:16px}
+.plug-card .thumb pre{font-size:11px;line-height:1.6;color:#cfe3ff;font-family:ui-monospace,Menlo,monospace;overflow:hidden}
+.plug-card .thumb pre .kw{color:#c678dd}
+.plug-card .thumb pre .fn{color:#61afef}
+.plug-card .thumb pre .st{color:#98c379}
+.plug-card .thumb pre .cm{color:#5c6370;font-style:italic}
+.plug-card .thumb pre .ty{color:#e5c07b}
+.plug-card .body{padding:24px}
+.plug-card h3{font-size:17px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.plug-card .tag{font-size:11.5px;padding:3px 9px;border-radius:999px;background:rgba(56,214,245,.12);color:var(--cyan);font-weight:600}
+.plug-card p{color:var(--muted);font-size:14px;margin-bottom:14px}
+.plug-card ol{margin:0 0 14px 18px;color:var(--muted);font-size:13.5px}
+.plug-card ol li{margin-bottom:4px}
+@media(max-width:820px){.plug-grid{grid-template-columns:1fr}}
+
+/* workflow */
+.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;counter-reset:s}
+.step{counter-increment:s;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px;position:relative}
+.step::before{content:counter(s);position:absolute;top:-14px;left:20px;width:28px;height:28px;border-radius:8px;background:linear-gradient(140deg,var(--cyan),var(--indigo));color:#05101f;font-weight:800;display:grid;place-items:center;font-size:14px}
+.step h4{font-size:15px;margin:6px 0 6px}
+.step p{font-size:13px;color:var(--muted)}
+@media(max-width:820px){.steps{grid-template-columns:1fr 1fr}}
+
+/* IDE showcase */
+.ide-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.ide-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.ide-card .cap{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.ide-card .cap h3{font-size:15px;display:flex;align-items:center;gap:8px}
+.ide-card .cap .pill{font-size:11px;padding:3px 10px;border-radius:999px;background:rgba(61,220,151,.12);color:var(--green);font-weight:600}
+.ide-card .cap .pill.transform{background:rgba(56,214,245,.12);color:var(--cyan)}
+.ide-card .imgwrap{background:#050912;min-height:200px;display:grid;place-items:center}
+.ide-card .imgwrap img{width:100%;height:auto;display:block}
+.ide-card .imgwrap .ph{color:var(--muted);font-size:13px;text-align:center;padding:40px}
+.ide-card .desc{padding:18px 20px;color:var(--muted);font-size:13.5px;border-top:1px solid var(--line)}
+@media(max-width:820px){.ide-grid{grid-template-columns:1fr}}
+
+/* code */
+pre{background:#050912;border:1px solid var(--line);border-radius:var(--radius);padding:22px;overflow:auto;font-size:13.5px;line-height:1.75;color:#cfe3ff}
+pre code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@media(max-width:560px){pre{font-size:12px;padding:16px}}
+
+/* cta band */
+.band{margin:30px 0 80px;border:1px solid var(--line);border-radius:24px;padding:56px 40px;text-align:center;background:radial-gradient(700px 300px at 50% 0%,rgba(56,214,245,.14),transparent 70%),var(--panel);position:relative;overflow:hidden}
+.band h2{font-size:clamp(24px,3vw,34px)}
+.band p{color:var(--muted);margin:12px auto 26px;max-width:520px}
+
+/* footer */
+footer{border-top:1px solid var(--line);padding:36px 0;color:var(--muted);font-size:13.5px}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px}
+
+::selection{background:rgba(56,214,245,.3)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <div class="logo"><span class="mark">{ }</span> DiffRay <span class="badge v2" style="margin:0;font-size:11px;padding:2px 10px"><i></i>v2</span></div>
+    <div class="links">
+      <a href="#drl">DRL 语言</a>
+      <a href="#features">特性</a>
+      <a href="#plugin">插件系统</a>
+      <a href="#ide">DiffRay IDE</a>
+      <a href="#api">API</a>
+      <a href="#start">快速开始</a>
+      <a href="#" class="gh">GitHub ↗</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <span class="badge v2"><i></i> v2.0 · DRL 脚本语言 · 内置 IDE</span>
+      <h1>用 <em>DRL 脚本</em><br>声明 JSON 对比规则</h1>
+      <p class="lead">DiffRay v2 告别 YAML/JSON 配置的臃肿，引入专属领域脚本语言 DRL（DiffRay Script Language）。写几行声明式脚本，定义排除、提取、转换的完整流水线——比配置更简洁，比代码更轻量。</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="#drl">⚡ 5 分钟上手 DRL</a>
+        <a class="btn btn-ghost" href="#ide">在线试玩 IDE →</a>
+      </div>
+      <div class="hero-meta">
+        <div><b>DRL</b>声明式脚本</div>
+        <div><b>IDE</b>浏览器内实时预览</div>
+        <div><b>100%</b>Go 实现</div>
+      </div>
+    </div>
+    <div class="hero-img">
+      <pre><code><span class="cm"># DRL — DiffRay Script Language</span>
+<span class="kw">remove</span> $.extra
+
+<span class="kw">glean</span> {
+  name  = $.user.name
+  email = $.user.email
+  age   = $.user.age
+  payload = $.user.payload
+}
+
+<span class="kw">transform</span> {
+  <span class="kw">on</span> $.payload <span class="fn">using</span> b64decode, fromjson {
+    <span class="kw">on</span> $.name <span class="fn">using</span> uppercase, trim
+    <span class="kw">remove</span> $.datetime
+  }
+  <span class="kw">on</span> $.name  <span class="fn">using</span> trim, lowercase
+  <span class="kw">on</span> $.email <span class="fn">using</span> trim, uppercase
+}</code></pre>
+    </div>
+  </div>
+</header>
+
+<!-- ==================== v1 vs v2 ==================== -->
+<section id="vs">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">From v1 to v2</div>
+      <h2>从配置文件到脚本语言</h2>
+      <p class="sec-desc">v1 用 YAML/JSON 描述规则，v2 用 DRL 脚本表达意图。同样的规则，配置要写 30 行，脚本只需 15 行。</p>
+    </div>
+    <div class="vs-grid">
+      <div class="vs-col old">
+        <h3>v1 · YAML 配置</h3>
+        <pre><code><span class="tok-cm"># 字段级比较规则</span>
+<span class="tok-kw">comparators</span>:
+  - <span class="tok-kw">path</span>: $.user.name
+    <span class="tok-kw">type</span>: lua
+    <span class="tok-kw">config</span>:
+      <span class="tok-kw">script</span>: <span class="tok-st">|</span>
+        function compare(old, new, ctx)
+          return {
+            matched = string.lower(old)
+                   == string.lower(new)
+          }
+        end
+
+<span class="tok-cm"># 比较前预处理</span>
+<span class="tok-kw">transform</span>:
+  <span class="tok-kw">rules</span>:
+    - <span class="tok-kw">type</span>: exclude
+      <span class="tok-kw">config</span>:
+        <span class="tok-kw">path</span>: [$.extra, $.debug]
+    - <span class="tok-kw">type</span>: parseJsonString
+      <span class="tok-kw">config</span>: { <span class="tok-kw">path</span>: $.payload }</code></pre>
+        <ul class="vs-list">
+          <li>缩进敏感，嵌套层级深</li>
+          <li>重复的路径声明</li>
+          <li>规则与转换分离在两个字段</li>
+          <li>改动需重启服务</li>
+        </ul>
+      </div>
+      <div class="vs-arrow">→</div>
+      <div class="vs-col new">
+        <h3>v2 · DRL 脚本</h3>
+        <pre><code><span class="tok-kw">remove</span> $.extra
+
+<span class="tok-kw">glean</span> {
+  name  = $.user.name
+  email = $.user.email
+  age   = $.user.age
+}
+
+<span class="tok-kw">transform</span> {
+  <span class="tok-kw">on</span> $.payload <span class="tok-fn">using</span> b64decode, fromjson {
+    <span class="tok-kw">on</span> $.name <span class="tok-fn">using</span> uppercase, trim
+  }
+  <span class="tok-kw">on</span> $.email <span class="tok-fn">using</span> trim, uppercase
+}</code></pre>
+        <ul class="vs-list good">
+          <li>扁平化声明，一眼看懂</li>
+          <li>路径绑定即规则定义</li>
+          <li>排除 / 提取 / 转换统一语法</li>
+          <li>IDE 内实时调试热更新</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== DRL ==================== -->
+<section id="drl" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">DRL · DiffRay Script Language</div>
+      <h2>一门为 JSON 差异对比而生的脚本语言</h2>
+      <p class="sec-desc">DRL 的设计哲学：让"排除什么、提取什么、怎么转换"变成可读的声明式语句，而不是嵌套的键值对。</p>
+    </div>
+
+    <div class="drl-box">
+      <div class="drl-header">
+        <span class="lang">example.drl</span>
+        <div class="badges">
+          <span>remove</span>
+          <span>glean</span>
+          <span>transform</span>
+          <span>on / using</span>
+        </div>
+      </div>
+<pre><code><span class="tok-cm">// 1. 排除：从比较中移除指定路径</span>
+<span class="tok-kw">remove</span> $.extra
+<span class="tok-kw">remove</span> $.metadata.created
+
+<span class="tok-cm">// 2. 提取：从源 JSON 中重新构建输出结构</span>
+<span class="tok-kw">glean</span> {
+  name    = $.user.name
+  email   = $.user.email
+  age     = $.user.age
+  payload = $.user.payload
+}
+
+<span class="tok-cm">// 3. 转换：对匹配路径执行处理管道</span>
+<span class="tok-kw">transform</span> {
+  <span class="tok-cm">// 对 $.payload 先 base64 解码再解析 JSON，</span>
+  <span class="tok-cm">// 然后在解码后的结构上继续操作</span>
+  <span class="tok-kw">on</span> $.payload <span class="tok-fn">using</span> b64decode, fromjson {
+    <span class="tok-kw">on</span> $.name <span class="tok-fn">using</span> uppercase, trim
+    <span class="tok-kw">remove</span> $.datetime
+  }
+
+  <span class="tok-cm">// 顶层字段直接转换</span>
+  <span class="tok-kw">on</span> $.name  <span class="tok-fn">using</span> trim, lowercase
+  <span class="tok-kw">on</span> $.email <span class="tok-fn">using</span> trim, uppercase
+}</code></pre>
+    </div>
+
+    <div class="feat-grid" style="margin-top:44px">
+      <div class="feat"><div class="dot">A</div><div><h3>声明式语法</h3><p>四个核心关键字 <code>remove</code> / <code>glean</code> / <code>transform</code> / <code>on</code>，搭配 <code>using</code> 管道操作符，规则即代码。</p></div></div>
+      <div class="feat"><div class="dot">B</div><div><h3>嵌套作用域</h3><p><code>transform</code> 块内可嵌套 <code>on</code> 子句，在父路径处理后自动进入子节点上下文，层级关系一目了然。</p></div></div>
+      <div class="feat"><div class="dot">C</div><div><h3>处理管道</h3><p><code>using</code> 后接多个处理器，按顺序链式执行：<code>b64decode → fromjson → uppercase</code>。</p></div></div>
+      <div class="feat"><div class="dot">D</div><div><h3>零依赖</h3><p>DRL 解析器由 Go 原生实现，无第三方语法库依赖，编译进单一二进制，启动即就绪。</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== Core Features ==================== -->
+<section id="features" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Core Features</div>
+      <h2>六个关键词，说清它能干什么</h2>
+    </div>
+    <div class="feat-grid">
+      <div class="feat"><div class="dot">01</div><div><h3>路径级比较</h3><p>JSONPath 精确绑定规则，支持 <code>$.tags[*]</code>、<code>$..age</code> 通配与递归路径。</p></div></div>
+      <div class="feat"><div class="dot">02</div><div><h3>DRL 脚本</h3><p>用脚本替代 YAML/JSON 配置，声明式排除、提取、转换流水线，更简洁、更易读。</p></div></div>
+      <div class="feat"><div class="dot">03</div><div><h3>转换预处理</h3><p><code>b64decode</code>、<code>fromjson</code>、<code>trim</code>、<code>uppercase</code>、<code>lowercase</code> 等内置处理器，管道化组合。</p></div></div>
+      <div class="feat"><div class="dot">04</div><div><h3>严重程度</h3><p>按路径设定 Critical / Warning，差异结果自带分类，便于准入判定。</p></div></div>
+      <div class="feat"><div class="dot">05</div><div><h3>插件扩展</h3><p><code>core.RegisterCmp</code> / <code>core.RegisterOp</code> 注册自定义比较器与处理器，Go 原生编写。</p></div></div>
+      <div class="feat"><div class="dot">06</div><div><h3>DiffRay IDE</h3><p>浏览器内三栏编辑器，实时编写 DRL、对比 JSON、查看逐行变换过程与 Trace。</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== Architecture ==================== -->
+<section id="arch" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Architecture</div>
+      <h2>一条清晰的流水线</h2>
+      <p class="sec-desc">DRL 脚本经过解析 → 预处理 → 规则绑定 → 遍历判定 → 结构化输出，每一层职责单一。</p>
+    </div>
+    <div class="arch-img">
+      <svg viewBox="0 0 700 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="700" height="200" rx="12" fill="#050912"/>
+        <rect x="20" y="60" width="110" height="80" rx="10" fill="rgba(56,214,245,.1)" stroke="var(--cyan)" stroke-width="1.5"/>
+        <text x="75" y="88" text-anchor="middle" fill="var(--cyan)" font-size="13" font-weight="700">DRL 解析</text>
+        <text x="75" y="106" text-anchor="middle" fill="var(--muted)" font-size="10">词法 + 语法</text>
+        <text x="75" y="122" text-anchor="middle" fill="var(--indigo)" font-size="9" font-family="monospace">pkg/drl</text>
+        <path d="M130 100 L160 100" stroke="var(--cyan)" stroke-width="1.5" marker-end="url(#a3)"/>
+        <rect x="160" y="60" width="110" height="80" rx="10" fill="rgba(91,140,255,.1)" stroke="var(--indigo)" stroke-width="1.5"/>
+        <text x="215" y="88" text-anchor="middle" fill="var(--indigo)" font-size="13" font-weight="700">预处理</text>
+        <text x="215" y="106" text-anchor="middle" fill="var(--muted)" font-size="10">管道转换</text>
+        <text x="215" y="122" text-anchor="middle" fill="var(--indigo)" font-size="9" font-family="monospace">pkg/transform</text>
+        <path d="M270 100 L300 100" stroke="var(--cyan)" stroke-width="1.5" marker-end="url(#a3)"/>
+        <rect x="300" y="60" width="110" height="80" rx="10" fill="rgba(56,214,245,.1)" stroke="var(--cyan)" stroke-width="1.5"/>
+        <text x="355" y="88" text-anchor="middle" fill="var(--cyan)" font-size="13" font-weight="700">规则绑定</text>
+        <text x="355" y="106" text-anchor="middle" fill="var(--muted)" font-size="10">路径快照</text>
+        <text x="355" y="122" text-anchor="middle" fill="var(--indigo)" font-size="9" font-family="monospace">pkg/compare</text>
+        <path d="M410 100 L440 100" stroke="var(--cyan)" stroke-width="1.5" marker-end="url(#a3)"/>
+        <rect x="440" y="60" width="110" height="80" rx="10" fill="rgba(91,140,255,.1)" stroke="var(--indigo)" stroke-width="1.5"/>
+        <text x="495" y="88" text-anchor="middle" fill="var(--indigo)" font-size="13" font-weight="700">遍历判定</text>
+        <text x="495" y="106" text-anchor="middle" fill="var(--muted)" font-size="10">递归树</text>
+        <text x="495" y="122" text-anchor="middle" fill="var(--indigo)" font-size="9" font-family="monospace">pkg/core</text>
+        <path d="M550 100 L580 100" stroke="var(--cyan)" stroke-width="1.5" marker-end="url(#a3)"/>
+        <rect x="580" y="60" width="100" height="80" rx="10" fill="rgba(56,214,245,.1)" stroke="var(--cyan)" stroke-width="1.5"/>
+        <text x="630" y="90" text-anchor="middle" fill="var(--cyan)" font-size="13" font-weight="700">输出</text>
+        <text x="630" y="106" text-anchor="middle" fill="var(--muted)" font-size="10">差异报告</text>
+        <text x="630" y="122" text-anchor="middle" fill="var(--indigo)" font-size="9" font-family="monospace">pkg/exporter</text>
+        <defs>
+          <marker id="a3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="var(--cyan)"/></marker>
+        </defs>
+      </svg>
+    </div>
+    <div class="arch-flow">
+      <div class="flow"><h4>DRL 解析</h4><p>词法分析 + AST 构建</p><div class="path">pkg/drl</div></div>
+      <div class="flow"><h4>预处理</h4><p>转换管道规范化文档</p><div class="path">pkg/transform</div></div>
+      <div class="flow"><h4>规则绑定</h4><p>路径快照加载比较器</p><div class="path">pkg/compare</div></div>
+      <div class="flow"><h4>遍历判定</h4><p>递归树并记录差异项</p><div class="path">pkg/core</div></div>
+      <div class="flow"><h4>输出</h4><p>差异、等价、忽略、摘要</p><div class="path">pkg/exporter</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== Plugin System ==================== -->
+<section id="plugin" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Plugin System</div>
+      <h2>用 Go 编写原生扩展</h2>
+      <p class="sec-desc">v2 的插件系统通过 <code>core.RegisterCmp</code> 和 <code>core.RegisterOp</code> 两个入口，让你用 Go 编写类型安全的自定义比较器与处理器。</p>
+    </div>
+    <div class="plug-grid">
+      <!-- Cmp Plugin -->
+      <div class="plug-card">
+        <div class="thumb">
+<pre><span class="kw">package</span> <span class="fn">example</span>
+
+<span class="kw">import</span> <span class="st">"github.com/ozmyth/diffray/core"</span>
+
+<span class="kw">func</span> <span class="fn">init</span>() {
+    core.<span class="fn">RegisterCmp</span>(<span class="st">"simplecmp"</span>, <span class="kw">func</span>(args <span class="kw">map</span>[<span class="ty">string</span>]<span class="kw">any</span>) (core.Cmp, <span class="ty">error</span>) {
+        <span class="kw">return</span> <span class="fn">simpleCmp</span>{}, <span class="kw">nil</span>
+    })
+}</pre>
+        </div>
+        <div class="body">
+          <h3><span class="tag">comparator</span> 注册自定义比较器</h3>
+          <p>实现 <code>Name()</code>、<code>Supports()</code>、<code>Compare()</code> 三个方法，通过 <code>core.RegisterCmp</code> 注册到引擎。</p>
+          <ol>
+            <li><code>Name()</code> 返回比较器唯一标识</li>
+            <li><code>Supports(old, new)</code> 声明可处理的数据类型</li>
+            <li><code>Compare(old, new)</code> 返回 <code>*core.CompareResult</code></li>
+            <li>在 <code>init()</code> 中注册，import 即生效</li>
+          </ol>
+          <pre><code><span class="tok-kw">type</span> <span class="tok-fn">simpleCmp</span> <span class="tok-kw">struct</span>{}
+
+<span class="tok-kw">func</span> (c simpleCmp) <span class="tok-fn">Name</span>() <span class="tok-kw">string</span> {
+    <span class="tok-kw">return</span> <span class="tok-st">"simplecmp"</span>
+}
+
+<span class="tok-kw">func</span> (c simpleCmp) <span class="tok-fn">Compare</span>(old, new <span class="tok-kw">any</span>) *core.CompareResult {
+    <span class="tok-kw">return</span> &core.CompareResult{}
+}</code></pre>
+        </div>
+      </div>
+
+      <!-- Op Plugin -->
+      <div class="plug-card">
+        <div class="thumb">
+<pre><span class="kw">package</span> <span class="fn">example</span>
+
+<span class="kw">import</span> <span class="st">"github.com/ozmyth/diffray/core"</span>
+
+<span class="kw">func</span> <span class="fn">init</span>() {
+    core.<span class="fn">RegisterOp</span>(<span class="st">"simpleop"</span>, <span class="kw">func</span>(args <span class="kw">map</span>[<span class="ty">string</span>]<span class="kw">any</span>) (core.Op, <span class="ty">error</span>) {
+        <span class="kw">return</span> <span class="fn">simpleOp</span>{}, <span class="kw">nil</span>
+    })
+}</pre>
+        </div>
+        <div class="body">
+          <h3><span class="tag">processor</span> 注册自定义处理器</h3>
+          <p>实现 <code>Name()</code> 和 <code>Apply()</code> 方法，通过 <code>core.RegisterOp</code> 注册，可在 DRL 的 <code>using</code> 管道中直接调用。</p>
+          <ol>
+            <li><code>Name()</code> 返回处理器唯一标识</li>
+            <li><code>Apply(value)</code> 对输入值做变换并返回</li>
+            <li>注册后可在 DRL 中写 <code>using simpleop</code></li>
+            <li>参数通过 <code>args map[string]any</code> 传入</li>
+          </ol>
+          <pre><code><span class="tok-kw">type</span> <span class="tok-fn">simpleOp</span> <span class="tok-kw">struct</span>{}
+
+<span class="tok-kw">func</span> (o simpleOp) <span class="tok-fn">Name</span>() <span class="tok-kw">string</span> {
+    <span class="tok-kw">return</span> <span class="tok-st">"simpleop"</span>
+}
+
+<span class="tok-kw">func</span> (o simpleOp) <span class="tok-fn">Apply</span>(value <span class="tok-kw">any</span>) (<span class="tok-kw">any</span>, <span class="tok-kw">error</span>) {
+    <span class="tok-kw">return</span> value, <span class="tok-kw">nil</span>
+}</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== DiffRay IDE ==================== -->
+<section id="ide" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">DiffRay IDE</div>
+      <h2>浏览器内的 DRL 开发环境</h2>
+      <p class="sec-desc">DiffRay v2 内置 Web IDE：左侧写 DRL 脚本，中间放旧 JSON，右侧放新 JSON，一键执行即可看到差异结果、等价项、逐行变换过程与完整 Trace。</p>
+    </div>
+    <div class="ide-grid">
+      <div class="ide-card">
+        <div class="cap">
+          <h3>🔄 Transform 模式</h3>
+          <span class="pill transform">REAL-TIME</span>
+        </div>
+        <div class="imgwrap">
+          <img src="./images/transform.png" alt="DiffRay IDE Transform 模式：DRL 脚本 + 输入 JSON → 转换结果，含 Transform Trace 逐行记录每一步操作" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;ph&quot;>transform.png<br>↑ 替换为 Transform 模式截图</div>'">
+        </div>
+        <div class="desc">在 Transform 模式下，IDE 对单份 JSON 执行 DRL 脚本，右侧实时展示转换结果，底部 Trace 面板逐行记录每个 <code>on</code> 子句的执行过程。</div>
+      </div>
+      <div class="ide-card">
+        <div class="cap">
+          <h3>🔍 Diff 模式</h3>
+          <span class="pill">REAL-TIME</span>
+        </div>
+        <div class="imgwrap">
+          <img src="./images/diff.png" alt="DiffRay IDE Diff 模式：OLD JSON vs NEW JSON 对比，展示 Real Diffs、Equivalents、Ignored 与严重程度摘要" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;ph&quot;>diff.png<br>↑ 替换为 Diff 模式截图</div>'">
+        </div>
+        <div class="desc">在 Diff 模式下，IDE 将 old/new 两份 JSON 分别经过 DRL 预处理后做结构化对比，结果分为 <strong>Real Diffs</strong>（真实差异）、<strong>Equivalents</strong>（等价项）、<strong>Ignored</strong>（忽略项）三类。</div>
+      </div>
+    </div>
+
+    <div class="feat-grid" style="margin-top:44px">
+      <div class="feat"><div class="dot">◆</div><div><h3>双轨 Trace</h3><p>OLD / NEW 分别记录独立的变换 Trace，可展开查看每一步处理器对数据做了什么。</p></div></div>
+      <div class="feat"><div class="dot">◆</div><div><h3>Monaco 编辑器</h3><p>DRL 语法高亮、JSON 校验、快捷键支持，开发体验对标 VS Code。</p></div></div>
+      <div class="feat"><div class="dot">◆</div><div><h3>结果分级</h3><p>差异按 Critical / Warning 分级，等价项默认折叠，专注真正的变更。</p></div></div>
+      <div class="feat"><div class="dot">◆</div><div><h3>零安装试玩</h3><p>启动 Go 服务即附带 IDE，无需额外部署前端，本地调试零成本。</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== Workflow ==================== -->
+<section id="flow" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Workflow</div>
+      <h2>典型使用五步走</h2>
+    </div>
+    <div class="steps">
+      <div class="step"><h4>写 DRL</h4><p>在 IDE 里声明 remove / glean / transform 规则。</p></div>
+      <div class="step"><h4>贴 JSON</h4><p>左边 old，右边 new，或单个输入做 transform。</p></div>
+      <div class="step"><h4>实时预览</h4><p>IDE 即时展示转换结果与 Trace 过程。</p></div>
+      <div class="step"><h4>运行 Diff</h4><p>执行对比，拿到结构化差异报告。</p></div>
+      <div class="step"><h4>接入 API</h4><p>规则稳定后，通过 HTTP API 集成到流水线。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== API ==================== -->
+<section id="api" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">HTTP API</div>
+      <h2>两个接口，接入任何系统</h2>
+      <p class="sec-desc">v2 精简为两个核心接口。Diff 负责对比，Transform 负责变换，覆盖所有 JSON 处理场景。</p>
+    </div>
+    <div class="feat-grid">
+      <div class="feat"><div class="dot">POST</div><div>
+        <h3 style="font-family:ui-monospace,Menlo,monospace;font-size:15px">/api/diff</h3>
+        <p>提交 old、new 与可选 DRL 脚本，返回差异项、等价项、忽略项与严重程度摘要。</p>
+<pre style="margin-top:10px;padding:14px;font-size:12px"><code><span class="tok-cm">// 请求体</span>
+{
+  <span class="tok-s">"old"</span>: <span class="tok-s">"{...}"</span>,
+  <span class="tok-s">"new"</span>: <span class="tok-s">"{...}"</span>,
+  <span class="tok-s">"script"</span>: <span class="tok-s">"remove $.extra\nglean {...}"</span>
+}
+
+<span class="tok-cm">// 响应体</span>
+{
+  <span class="tok-s">"diffs"</span>: [...],
+  <span class="tok-s">"equivalences"</span>: [...],
+  <span class="tok-s">"ignored"</span>: [...],
+  <span class="tok-s">"summary"</span>: { <span class="tok-s">"critical"</span>: 1, <span class="tok-s">"warning"</span>: 0 },
+  <span class="tok-s">"duration"</span>: <span class="tok-s">"2.15ms"</span>
+}</code></pre>
+      </div></div>
+      <div class="feat"><div class="dot">POST</div><div>
+        <h3 style="font-family:ui-monospace,Menlo,monospace;font-size:15px">/api/transform</h3>
+        <p>提交 JSON 与 DRL 脚本，返回变换后的 JSON、处理 Trace 与耗时。</p>
+<pre style="margin-top:10px;padding:14px;font-size:12px"><code><span class="tok-cm">// 请求体</span>
+{
+  <span class="tok-s">"input"</span>: <span class="tok-s">"{...}"</span>,
+  <span class="tok-s">"script"</span>: <span class="tok-s">"transform { on $.name using trim }"</span>
+}
+
+<span class="tok-cm">// 响应体</span>
+{
+  <span class="tok-s">"result"</span>: { <span class="tok-s">"name"</span>: <span class="tok-s">"alice"</span> },
+  <span class="tok-s">"traces"</span>: [...],
+  <span class="tok-s">"duration"</span>: <span class="tok-s">"0.82ms"</span>
+}</code></pre>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== Quick Start ==================== -->
+<section id="start" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Quick Start</div>
+      <h2>跑起来只要一行</h2>
+    </div>
+    <pre><code><span class="tok-cm"># 拉取镜像并启动（默认 :8080，附带 DiffRay IDE）</span>
+docker run -p 8080:8080 ozmyth/diffray:v2</code></pre>
+    <p class="sec-desc" style="margin-top:16px">启动后访问 <code>http://localhost:8080</code> 即可打开 DiffRay IDE，浏览器内编写 DRL、粘贴 JSON、实时查看对比结果。</p>
+  </div>
+</section>
+
+<div class="wrap">
+  <div class="band">
+    <h2>如果对比逻辑不该挤在一个大比较器里</h2>
+    <p>DiffRay v2 给你一条干净的扩展路径：DRL 声明式脚本定义规则、Go 插件系统扩展能力、IDE 实时验证效果。</p>
+    <div class="cta" style="justify-content:center">
+      <a class="btn btn-primary" href="#">📦 获取源码</a>
+      <a class="btn btn-ghost" href="#">📖 阅读 DRL 语法文档</a>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>© DiffRay v2 · 基于 Go 的 JSON 差异对比引擎</span>
+    <span>DRL · DiffRay Script Language</span>
+  </div>
+</footer>
+
+</body>
+</html>

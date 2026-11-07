@@ -307,14 +307,16 @@
       { label: "document", href: "https://ozmyth.github.io/diffray-landing.html" },
     ]
   },
-    // 以后加项目，复制上面这个对象，改内容即可 ↓
-    // {
-    //   name: "project-two",
-    //   desc: "...",
-    //   tech: ["Rust", "WASM"],
-    //   install: "cargo install project-two",
-    //   links: [{ label: "code", href: "..." }]
-    // },
+   {
+    name: "diffrayV2",
+    desc: "Path-level JSON / YAML diff engine with a built-in scripting language DRL.\nNot a line diff — it parses first, normalizes noise, then compares by field path.\nWrites DRL scripts to reshape, filter, and transform before diffing. Tags every field with a severity.",
+    tech: ["Go", "DRL", "JSON", "YAML", "Structural Diff", "Severity", "Embedded IDE"],
+    install: "docker run -p 8080:8080 ozmyth/diffray:v2",
+    links: [
+      { label: "code",      href: "https://github.com/ozmyth/diffray" },
+      { label: "document",  href: "https://ozmyth.github.io/diffray-landing-v2.html" },
+    ]
+  }
   ];
 
   const container = document.getElementById('projects');
