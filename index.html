@@ -100,7 +100,7 @@
     background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.5;
   }
 
-  .type-line{overflow:hidden;white-space:nowrap;border-right:2px solid var(--accent);width:0;
+  .type-line{overflow:hidden;white-space:nowrap;
     animation:typing 2.4s steps(38,end) .6s forwards,blink-caret .7s step-end infinite;}
   @keyframes typing{from{width:0}to{width:100%}}
   @keyframes blink-caret{0%,100%{border-color:var(--accent)}50%{border-color:transparent}}
@@ -301,7 +301,7 @@
     name: "diffray",
     desc: "Path-level JSON / YAML diff engine.\nNot a line diff — it parses first, normalizes noise, then compares by field path.\nSplits real changes from equivalent-but-restyled values, and tags every field with a severity.",
     tech: ["Go", "package", "JSON", "YAML", "Structural Diff", "Severity"],
-    install: "go install github.com/ozmyth/diffray@latest",
+    install: "docker pull ozmyth/diffray:latest",
     links: [
       { label: "code",   href: "https://github.com/ozmyth/diffray" },
       { label: "document", href: "https://ozmyth.github.io/diffray-landing.html" },
