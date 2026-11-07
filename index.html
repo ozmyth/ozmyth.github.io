@@ -297,6 +297,16 @@
 
   // ===== 项目数据 —— 以后加项目只改这里 =====
   const projects = [
+       {
+      name: "diffrayV2",
+      desc: "Path-level JSON / YAML diff engine with a built-in scripting language DRL.\nNot a line diff — it parses first, normalizes noise, then compares by field path.\nWrites DRL scripts to reshape, filter, and transform before diffing. Tags every field with a severity.",
+      tech: ["Go", "DRL", "JSON", "YAML", "Structural Diff", "Severity", "Embedded IDE"],
+      install: "docker run -p 8080:8080 ozmyth/diffray:v2",
+      links: [
+        { label: "code",      href: "https://github.com/ozmyth/diffray" },
+        { label: "document",  href: "https://ozmyth.github.io/diffray-landing-v2.html" },
+      ]
+    },
     {
     name: "diffray",
     desc: "Path-level JSON / YAML diff engine.\nNot a line diff — it parses first, normalizes noise, then compares by field path.\nSplits real changes from equivalent-but-restyled values, and tags every field with a severity.",
@@ -305,16 +315,6 @@
     links: [
       { label: "code",   href: "https://github.com/ozmyth/diffray" },
       { label: "document", href: "https://ozmyth.github.io/diffray-landing.html" },
-    ]
-  },
-   {
-    name: "diffrayV2",
-    desc: "Path-level JSON / YAML diff engine with a built-in scripting language DRL.\nNot a line diff — it parses first, normalizes noise, then compares by field path.\nWrites DRL scripts to reshape, filter, and transform before diffing. Tags every field with a severity.",
-    tech: ["Go", "DRL", "JSON", "YAML", "Structural Diff", "Severity", "Embedded IDE"],
-    install: "docker run -p 8080:8080 ozmyth/diffray:v2",
-    links: [
-      { label: "code",      href: "https://github.com/ozmyth/diffray" },
-      { label: "document",  href: "https://ozmyth.github.io/diffray-landing-v2.html" },
     ]
   }
   ];
