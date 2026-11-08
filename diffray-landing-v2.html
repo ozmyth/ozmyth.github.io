@@ -176,6 +176,23 @@ footer{border-top:1px solid var(--line);padding:36px 0;color:var(--muted);font-s
 footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px}
 
 ::selection{background:rgba(56,214,245,.3)}
+/* walkthrough */
+.walk-step-dot{
+  font-size:12px;font-weight:600;padding:6px 14px;border-radius:999px;
+  background:var(--panel);border:1px solid var(--line);color:var(--muted);
+  cursor:pointer;transition:.2s;user-select:none
+}
+.walk-step-dot:hover{border-color:var(--cyan);color:var(--cyan)}
+.walk-step-dot.active{background:rgba(56,214,245,.12);border-color:var(--cyan);color:var(--cyan)}
+.walk-active{background:rgba(56,214,245,.15);border-radius:3px;padding:1px 4px}
+.walk-dim{opacity:.35}
+.walk-strike{text-decoration:line-through;text-decoration-color:var(--red);opacity:.5}
+.walk-add{background:rgba(61,220,151,.1);border-radius:3px;padding:1px 4px}
+.walk-change{background:rgba(255,180,84,.1);border-radius:3px;padding:1px 4px}
+
+@media(max-width:820px){
+  .walk-area{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -352,6 +369,85 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px}
       <div class="feat"><div class="dot">B</div><div><h3>嵌套作用域</h3><p><code>transform</code> 块内可嵌套 <code>on</code> 子句，在父路径处理后自动进入子节点上下文，层级关系一目了然。</p></div></div>
       <div class="feat"><div class="dot">C</div><div><h3>处理管道</h3><p><code>using</code> 后接多个处理器，按顺序链式执行：<code>b64decode → fromjson → uppercase</code>。</p></div></div>
       <div class="feat"><div class="dot">D</div><div><h3>零依赖</h3><p>DRL 解析器由 Go 原生实现，无第三方语法库依赖，编译进单一二进制，启动即就绪。</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== Transform Walkthrough ==================== -->
+<section id="walkthrough" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Transform Walkthrough</div>
+      <h2>看 DRL 如何一步步改写 JSON</h2>
+      <p class="sec-desc">同一份 JSON，经过 DRL 脚本的排除、提取、转换三步流水线，最终输出干净的结构。下面逐步拆解每一步发生了什么。</p>
+    </div>
+
+    <!-- Step indicator -->
+    <div style="display:flex;gap:8px;margin-bottom:32px;flex-wrap:wrap">
+      <span class="walk-step-dot active" data-step="0">① 原始 JSON</span>
+      <span class="walk-step-dot" data-step="1">② remove</span>
+      <span class="walk-step-dot" data-step="2">③ glean</span>
+      <span class="walk-step-dot" data-step="3">④ transform payload</span>
+      <span class="walk-step-dot" data-step="4">⑤ transform name/email</span>
+      <span class="walk-step-dot" data-step="5">⑥ 最终输出</span>
+    </div>
+
+    <!-- Main walkthrough area -->
+    <div class="walk-area" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
+      <!-- Left: DRL being applied -->
+      <div class="walk-drl" style="background:#050912;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden">
+        <div class="drl-header">
+          <span class="lang">example.drl</span>
+          <span class="walk-step-badge" style="font-size:11px;padding:3px 10px;border-radius:999px;background:rgba(56,214,245,.12);color:var(--cyan);font-weight:600">当前步骤：② remove</span>
+        </div>
+        <pre id="walk-drl-code" style="padding:24px;font-size:13.5px;line-height:1.8;color:#cfe3ff;overflow:auto;max-height:420px"><code><span class="tok-cm">// 当前执行：remove $.extra</span>
+<span class="tok-kw walk-active">remove</span> $.extra
+
+<span class="tok-cm walk-dim">glean {
+  name  = $.user.name
+  email = $.user.email
+  age   = $.user.age
+  payload = $.user.payload
+}
+
+transform {
+  on $.payload using b64decode, fromjson {
+    on $.name using uppercase, trim
+    remove $.datetime
+  }
+  on $.name using trim, lowercase
+  on $.email using trim, uppercase
+}</span></code></pre>
+      </div>
+
+      <!-- Right: JSON state -->
+      <div class="walk-json" style="background:#050912;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden">
+        <div class="drl-header">
+          <span class="lang" id="walk-json-label">JSON after remove</span>
+          <span style="font-size:11px;padding:3px 10px;border-radius:999px;background:rgba(61,220,151,.12);color:var(--green);font-weight:600" id="walk-json-badge">1 个字段被移除</span>
+        </div>
+        <pre id="walk-json-code" style="padding:24px;font-size:13px;line-height:1.8;color:#cfe3ff;overflow:auto;max-height:420px"><code><span class="tok-cm">// remove $.extra 执行后</span>
+{
+  <span class="tok-cm walk-strike">"extra": "unchanged",    ← 被移除</span>
+  "user": {
+    "name": "  alice  ",
+    "email": "  ALICE@EXAMPLE.COM  ",
+    "age": "28",
+    "payload": "eyJuYW1lIjogIiBhbGljZSAiLCAiYWdlIjogMzAsICJkYXRldGltZSI6ICIyMDI0LTAxLTAxIn0="
+  }
+}</code></pre>
+      </div>
+    </div>
+
+    <!-- Step description -->
+    <div id="walk-desc" style="margin-top:24px;padding:20px 24px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);font-size:14.5px;color:var(--muted);line-height:1.7">
+      <strong style="color:var(--cyan)">② remove 阶段：</strong>从输入 JSON 中移除 <code>$.extra</code> 字段。这个字段不会进入后续的比较或转换流程，相当于在对比前"清理噪音"。
+    </div>
+
+    <!-- Navigation -->
+    <div style="display:flex;justify-content:center;gap:14px;margin-top:28px">
+      <button class="btn btn-ghost walk-prev" style="opacity:.4;pointer-events:none">← 上一步</button>
+      <button class="btn btn-primary walk-next">下一步 →</button>
     </div>
   </div>
 </section>
@@ -640,5 +736,197 @@ docker run -p 8080:8080 ozmyth/diffray:v2</code></pre>
   </div>
 </footer>
 
+
+<script>
+const walkSteps = [
+  {
+    label: "原始 JSON",
+    badge: "输入",
+    drlActive: 0,
+    drlCode: `<span class="tok-cm">// 原始输入，尚未执行任何 DRL 规则</span>
+<span class="tok-kw walk-dim">remove</span> $.extra
+
+<span class="tok-cm walk-dim">glean { ... }</span>
+
+<span class="tok-cm walk-dim">transform { ... }</span>`,
+    jsonCode: `{
+  "user": {
+    "name": "  alice  ",
+    "email": "  ALICE@EXAMPLE.COM  ",
+    "age": "28",
+    "payload": "eyJuYW1lIjogIiBhbGljZSAiLCAiYWdlIjogMzAsICJkYXRldGltZSI6ICIyMDI0LTAxLTAxIn0="
+  },
+  "extra": "unchanged"
+}`,
+    desc: `<strong style="color:var(--cyan)">原始输入：</strong>一份包含用户信息和噪音字段 <code>extra</code> 的 JSON。DRL 脚本将从这里开始逐层处理。`
+  },
+  {
+    label: "remove 之后",
+    badge: "1 个字段被移除",
+    drlActive: 1,
+    drlCode: `<span class="tok-cm">// 当前执行：remove $.extra</span>
+<span class="tok-kw walk-active">remove</span> $.extra
+
+<span class="tok-cm walk-dim">glean {
+  name  = $.user.name
+  email = $.user.email
+  age   = $.user.age
+  payload = $.user.payload
+}
+
+transform {
+  on $.payload using b64decode, fromjson {
+    on $.name using uppercase, trim
+    remove $.datetime
+  }
+  on $.name using trim, lowercase
+  on $.email using trim, uppercase
+}</span>`,
+    jsonCode: `{
+  <span class="tok-cm walk-strike">"extra": "unchanged",    ← 被移除</span>
+  "user": {
+    "name": "  alice  ",
+    "email": "  ALICE@EXAMPLE.COM  ",
+    "age": "28",
+    "payload": "eyJuYW1lIjogIiBhbGljZSAiLCAiYWdlIjogMzAsICJkYXRldGltZSI6ICIyMDI0LTAxLTAxIn0="
+  }
+}`,
+    desc: `<strong style="color:var(--cyan)">② remove 阶段：</strong>从输入 JSON 中移除 <code>$.extra</code> 字段。这个字段不会进入后续的比较或转换流程，相当于在对比前"清理噪音"。`
+  },
+  {
+    label: "glean 之后",
+    badge: "重建结构",
+    drlActive: 2,
+    drlCode: `<span class="tok-cm">// 当前执行：glean 提取字段</span>
+<span class="tok-kw walk-dim">remove</span> $.extra
+
+<span class="tok-kw walk-active">glean</span> {
+  name    = $.user.name
+  email   = $.user.email
+  age     = $.user.age
+  payload = $.user.payload
+}
+
+<span class="tok-cm walk-dim">transform { ... }</span>`,
+    jsonCode: `{
+  <span class="tok-cm walk-add">"name": "  alice  ",       ← 从 $.user.name 提取</span>
+  <span class="tok-cm walk-add">"email": "  ALICE@EXAMPLE.COM  ",</span>
+  <span class="tok-cm walk-add">"age": "28",</span>
+  <span class="tok-cm walk-add">"payload": "eyJuYW1lIjogIiBhbGljZSAiLCAiYWdlIjogMzAsICJkYXRldGltZSI6ICIyMDI0LTAxLTAxIn0="</span>
+}`,
+    desc: `<strong style="color:var(--cyan)">③ glean 阶段：</strong>从嵌套的 <code>$.user</code> 中提取字段，重建为扁平结构。原始 <code>user</code> 对象不再保留，只保留提取出的字段。`
+  },
+  {
+    label: "transform payload 之后",
+    badge: "b64decode + fromjson",
+    drlActive: 3,
+    drlCode: `<span class="tok-cm">// 当前执行：transform on $.payload</span>
+<span class="tok-kw walk-dim">remove</span> $.extra
+<span class="tok-kw walk-dim">glean { ... }</span>
+
+<span class="tok-kw walk-active">transform</span> {
+  <span class="tok-kw walk-active">on</span> $.payload <span class="tok-fn">using</span> b64decode, fromjson {
+    <span class="tok-kw walk-active">on</span> $.name <span class="tok-fn">using</span> uppercase, trim
+    <span class="tok-kw walk-active">remove</span> $.datetime
+  }
+  <span class="tok-cm walk-dim">on $.name using trim, lowercase</span>
+  <span class="tok-cm walk-dim">on $.email using trim, uppercase</span>
+}`,
+    jsonCode: `{
+  "name": "  alice  ",
+  "email": "  ALICE@EXAMPLE.COM  ",
+  "age": "28",
+  <span class="tok-cm walk-change">"payload": {                  ← base64 解码 + JSON 解析</span>
+    <span class="tok-cm walk-change">"name": "ALICE",             ← uppercase + trim</span>
+    <span class="tok-cm walk-change">"age": 30,</span>
+    <span class="tok-cm walk-strike">"datetime": "2024-01-01"   ← 被移除</span>
+  <span class="tok-cm walk-change">}</span>
+}`,
+    desc: `<strong style="color:var(--cyan)">④ transform payload 阶段：</strong><code>$.payload</code> 先经过 <code>b64decode</code> 解码，再 <code>fromjson</code> 解析为对象。进入嵌套作用域后，<code>$.name</code> 执行 <code>uppercase + trim</code>，<code>$.datetime</code> 被移除。`
+  },
+  {
+    label: "transform name/email 之后",
+    badge: "trim + lowercase/uppercase",
+    drlActive: 4,
+    drlCode: `<span class="tok-cm">// 当前执行：transform on $.name / $.email</span>
+<span class="tok-kw walk-dim">remove</span> $.extra
+<span class="tok-kw walk-dim">glean { ... }</span>
+
+<span class="tok-kw walk-active">transform</span> {
+  <span class="tok-cm walk-dim">on $.payload using b64decode, fromjson { ... }</span>
+  <span class="tok-kw walk-active">on $.name using trim, lowercase</span>
+  <span class="tok-kw walk-active">on $.email using trim, uppercase</span>
+}`,
+    jsonCode: `{
+  <span class="tok-cm walk-change">"name": "alice",              ← trim + lowercase</span>
+  <span class="tok-cm walk-change">"email": "ALICE@EXAMPLE.COM", ← trim + uppercase</span>
+  "age": "28",
+  "payload": {
+    "name": "ALICE",
+    "age": 30
+  }
+}`,
+    desc: `<strong style="color:var(--cyan)">⑤ transform name/email 阶段：</strong>顶层 <code>$.name</code> 执行 <code>trim + lowercase</code> → <code>"alice"</code>；<code>$.email</code> 执行 <code>trim + uppercase</code> → <code>"ALICE@EXAMPLE.COM"</code>。注意 <code>payload.name</code> 不受影响，因为作用域不同。`
+  },
+  {
+    label: "最终输出",
+    badge: "完成",
+    drlActive: 5,
+    drlCode: `<span class="tok-cm">// ✅ 所有 DRL 规则执行完毕</span>
+<span class="tok-kw walk-dim">remove</span> $.extra
+<span class="tok-kw walk-dim">glean { ... }</span>
+<span class="tok-kw walk-dim">transform { ... }</span>`,
+    jsonCode: `{
+  "age": "28",
+  "email": "alice@example.com",
+  "name": "alice",
+  "payload": {
+    "age": 30,
+    "name": "ALICE"
+  }
+}`,
+    desc: `<strong style="color:var(--green)">⑥ 最终输出：</strong>经过排除、提取、三层转换后，得到干净、扁平、标准化的 JSON。原始嵌套结构、噪音字段、格式不一致全部被消除。`
+  }
+];
+
+let walkIdx = 0;
+
+function renderWalkStep(idx) {
+  const step = walkSteps[idx];
+  document.querySelectorAll('.walk-step-dot').forEach((d, i) => {
+    d.classList.toggle('active', i === idx);
+  });
+  document.querySelector('.walk-step-badge').textContent = `当前步骤：${idx + 1} ${['原始', 'remove', 'glean', 'transform payload', 'transform name/email', '输出'][idx]}`;
+  document.getElementById('walk-json-label').textContent = step.label;
+  document.getElementById('walk-json-badge').textContent = step.badge;
+  document.getElementById('walk-drl-code').innerHTML = `<code>${step.drlCode}</code>`;
+  document.getElementById('walk-json-code').innerHTML = `<code>${step.jsonCode}</code>`;
+  document.getElementById('walk-desc').innerHTML = step.desc;
+
+  // prev/next buttons
+  const prevBtn = document.querySelector('.walk-prev');
+  const nextBtn = document.querySelector('.walk-next');
+  prevBtn.style.opacity = idx === 0 ? '.4' : '1';
+  prevBtn.style.pointerEvents = idx === 0 ? 'none' : 'auto';
+  nextBtn.style.opacity = idx === walkSteps.length - 1 ? '.4' : '1';
+  nextBtn.style.pointerEvents = idx === walkSteps.length - 1 ? 'none' : 'auto';
+  nextBtn.textContent = idx === walkSteps.length - 1 ? '完成 ✓' : '下一步 →';
+}
+
+document.querySelector('.walk-prev').addEventListener('click', () => {
+  if (walkIdx > 0) { walkIdx--; renderWalkStep(walkIdx); }
+});
+document.querySelector('.walk-next').addEventListener('click', () => {
+  if (walkIdx < walkSteps.length - 1) { walkIdx++; renderWalkStep(walkIdx); }
+});
+document.querySelectorAll('.walk-step-dot').forEach(dot => {
+  dot.addEventListener('click', () => {
+    walkIdx = parseInt(dot.dataset.step);
+    renderWalkStep(walkIdx);
+  });
+});
+
+renderWalkStep(0);
+</script>
 </body>
 </html>
